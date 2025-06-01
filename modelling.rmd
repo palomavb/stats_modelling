@@ -1,0 +1,129 @@
+---
+title: "**Modelagem Estatística** - Modelagem de dados de contagem com sobredispersão"
+author: "Paloma Borges"
+output: pdf_document
+---
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+```{r}
+#install.packages("MASS")
+#install.packages("AER")
+#install.packages("pscl")
+```
+
+```{r}
+library(MASS)
+library(AER)
+library(pscl)
+```
+
+### Carregamento dos dados
+```{r}
+data("RecreationDemand", package = "AER")
+df <- RecreationDemand
+
+head(df)
+summary(df)
+```
+
+### Modelo de Regressão de Poisson
+
+```{r}
+poisson_model <- glm(
+    trips ~ quality + ski + userfee + costS, 
+    data = df,
+    family = poisson(link = "log")
+)
+
+summary(poisson_model)
+aic_poisson <- AIC(poisson_model)
+print(paste("AIC do modelo de Poisson:", aic_poisson))
+```
+
+Vamos comparar a quantidade de zeros no modelo de Poisson (probabilidade de prever zero) com a quantidade de zeros no conjunto de dados.
+```{r}
+zero_count <- sum(df$trips == 0)
+print(paste("Quantidade de zeros no conjunto de dados:", zero_count))
+
+pred_poisson <- predict(poisson_model, type = "response")
+poisson_zero_count <- sum(dpois(0, lambda = pred_poisson))
+print(paste("Quantidade de zeros previstos pelo modelo de Poisson:", round(poisson_zero_count)))
+```
+
+### Teste de Sobredispersão
+```{r}
+#Valores ajustados
+mu_hat <- fitted(poisson_model)
+y = df$trips
+
+#Z_i
+z_i <- ((y - mu_hat)^2) - y / mu_hat
+
+# Regressão de Z_i em mu_hat (sem intercepto)
+sobredisp_model <- lm(z_i ~ 0 + mu_hat)
+summary(sobredisp_model)
+
+# p-value e coeficiente
+p_value <- summary(sobredisp_model)$coefficients[1, 4]
+coef_sobredisp <- summary(sobredisp_model)$coefficients[1, 1]
+print(paste("p-value do teste de sobredispersão:", p_value))
+print(paste("Coeficiente do teste de sobredispersão:", coef_sobredisp))
+```
+
+
+### Modelo de Regressão de Negativa Binomial
+```{r}
+nb_model <- glm.nb(
+    trips ~ quality + ski + userfee + costS, 
+    data = df
+)
+
+summary(nb_model)
+
+aic_nb <- AIC(nb_model)
+```
+
+### Comparação de Modelos
+```{r}
+# Comparando AIC dos modelos
+aic_comparison <- data.frame(
+    Model = c("Poisson", "Negativa Binomial"),
+    AIC = c(aic_poisson, aic_nb)
+)
+print(aic_comparison)
+
+# Comparando BIC dos modelos
+bic_comparison <- data.frame(
+    Model = c("Poisson", "Negativa Binomial"),
+    BIC = c(BIC(poisson_model), BIC(nb_model))
+)
+print(bic_comparison)
+```
+
+### Modelo de Poisson Inflado de zeros
+```{r}
+zip_model <- zeroinfl(
+    trips ~ quality + ski + userfee + costS | 1, 
+    data = df, 
+    dist = "poisson"
+)
+
+summary(zip_model)
+```
+
+```{r}
+#AIC e BIC do modelo ZIP
+aic_zip <- AIC(zip_model)
+bic_zip <- BIC(zip_model)
+
+# Comparando AIC e BIC do modelo ZIP com os outros modelos
+comparison_zip <- data.frame(
+    Model = c("Poisson", "Negativa Binomial", "ZIP"),
+    AIC = c(aic_poisson, aic_nb, aic_zip),
+    BIC = c(BIC(poisson_model), BIC(nb_model), bic_zip)
+)
+print(comparison_zip)
+```

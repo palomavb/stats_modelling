@@ -1,7 +1,7 @@
 ---
 title: "**Modelagem Estatística** - Modelagem de dados de contagem com sobredispersão"
 author: "Paloma Borges"
-output: pdf_document
+output: html_document
 ---
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
@@ -39,8 +39,6 @@ poisson_model <- glm(
 )
 
 summary(poisson_model)
-aic_poisson <- AIC(poisson_model)
-print(paste("AIC do modelo de Poisson:", aic_poisson))
 ```
 
 Vamos comparar a quantidade de zeros no modelo de Poisson (probabilidade de prever zero) com a quantidade de zeros no conjunto de dados.
@@ -82,26 +80,8 @@ nb_model <- glm.nb(
 )
 
 summary(nb_model)
-
-aic_nb <- AIC(nb_model)
 ```
 
-### Comparação de Modelos
-```{r}
-# Comparando AIC dos modelos
-aic_comparison <- data.frame(
-    Model = c("Poisson", "Negativa Binomial"),
-    AIC = c(aic_poisson, aic_nb)
-)
-print(aic_comparison)
-
-# Comparando BIC dos modelos
-bic_comparison <- data.frame(
-    Model = c("Poisson", "Negativa Binomial"),
-    BIC = c(BIC(poisson_model), BIC(nb_model))
-)
-print(bic_comparison)
-```
 
 ### Modelo de Poisson Inflado de zeros
 ```{r}
@@ -114,16 +94,13 @@ zip_model <- zeroinfl(
 summary(zip_model)
 ```
 
+### Comparação dos Modelos
 ```{r}
-#AIC e BIC do modelo ZIP
-aic_zip <- AIC(zip_model)
-bic_zip <- BIC(zip_model)
-
 # Comparando AIC e BIC do modelo ZIP com os outros modelos
-comparison_zip <- data.frame(
+comparison <- data.frame(
     Model = c("Poisson", "Negativa Binomial", "ZIP"),
-    AIC = c(aic_poisson, aic_nb, aic_zip),
-    BIC = c(BIC(poisson_model), BIC(nb_model), bic_zip)
+    AIC = c(AIC(poisson_model), AIC(nb_model), AIC(zip_model)),
+    BIC = c(BIC(poisson_model), BIC(nb_model), BIC(zip_model))
 )
-print(comparison_zip)
+print(comparison)
 ```

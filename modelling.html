@@ -394,7 +394,7 @@ head(df)</code></pre>
 <div id="modelo-de-regressão-de-poisson" class="section level3">
 <h3>Modelo de Regressão de Poisson</h3>
 <pre class="r"><code>poisson_model &lt;- glm(
-    trips ~ quality + ski + userfee + costS, 
+    trips ~ quality + ski + userfee + costS + costH + costC, 
     data = df,
     family = poisson(link = &quot;log&quot;)
 )
@@ -402,24 +402,26 @@ head(df)</code></pre>
 summary(poisson_model)</code></pre>
 <pre><code>## 
 ## Call:
-## glm(formula = trips ~ quality + ski + userfee + costS, family = poisson(link = &quot;log&quot;), 
-##     data = df)
+## glm(formula = trips ~ quality + ski + userfee + costS + costH + 
+##     costC, family = poisson(link = &quot;log&quot;), data = df)
 ## 
 ## Coefficients:
 ##              Estimate Std. Error z value Pr(&gt;|z|)    
-## (Intercept)  0.102649   0.072832   1.409    0.159    
-## quality      0.532836   0.015776  33.776  &lt; 2e-16 ***
-## skiyes       0.316919   0.053836   5.887 3.94e-09 ***
-## userfeeyes   1.151629   0.079886  14.416  &lt; 2e-16 ***
-## costS       -0.015631   0.001009 -15.486  &lt; 2e-16 ***
+## (Intercept) -0.076751   0.073879  -1.039    0.299    
+## quality      0.466520   0.016975  27.483  &lt; 2e-16 ***
+## skiyes       0.331206   0.055164   6.004 1.93e-09 ***
+## userfeeyes   0.921078   0.078990  11.661  &lt; 2e-16 ***
+## costS       -0.043547   0.001656 -26.302  &lt; 2e-16 ***
+## costH        0.037173   0.002619  14.193  &lt; 2e-16 ***
+## costC       -0.003816   0.003050  -1.251    0.211    
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
 ## 
 ## (Dispersion parameter for poisson family taken to be 1)
 ## 
 ##     Null deviance: 4849.7  on 658  degrees of freedom
-## Residual deviance: 2758.5  on 654  degrees of freedom
-## AIC: 3521.5
+## Residual deviance: 2340.0  on 652  degrees of freedom
+## AIC: 3107.1
 ## 
 ## Number of Fisher Scoring iterations: 7</code></pre>
 <p>Vamos comparar a quantidade de zeros no modelo de Poisson
@@ -431,10 +433,15 @@ print(paste(&quot;Quantidade de zeros no conjunto de dados:&quot;, zero_count))<
 <pre class="r"><code>pred_poisson &lt;- predict(poisson_model, type = &quot;response&quot;)
 poisson_zero_count &lt;- sum(dpois(0, lambda = pred_poisson))
 print(paste(&quot;Quantidade de zeros previstos pelo modelo de Poisson:&quot;, round(poisson_zero_count)))</code></pre>
-<pre><code>## [1] &quot;Quantidade de zeros previstos pelo modelo de Poisson: 255&quot;</code></pre>
+<pre><code>## [1] &quot;Quantidade de zeros previstos pelo modelo de Poisson: 272&quot;</code></pre>
 </div>
 <div id="teste-de-sobredispersão" class="section level3">
 <h3>Teste de Sobredispersão</h3>
+<p>Vamos verificar se há sobredispersão nos dados, que é uma condição
+comum em modelos de contagem onde a variância é maior que a média. Esse
+teste é feito através da regressão de <span class="math inline">\(Z_i\)</span> em <span class="math inline">\(\mu\)</span>, onde <span class="math inline">\(Z_i
+= (y_i - \mu_i)^2 - y_i / \mu_i\)</span>. Se o coeficiente for
+significativo, indica sobredispersão.</p>
 <pre class="r"><code>#Valores ajustados
 mu_hat &lt;- fitted(poisson_model)
 y = df$trips
@@ -450,67 +457,85 @@ summary(sobredisp_model)</code></pre>
 ## lm(formula = z_i ~ 0 + mu_hat)
 ## 
 ## Residuals:
-##    Min     1Q Median     3Q    Max 
-## -508.6  -23.4   -8.3   -5.7 7172.4 
+##     Min      1Q  Median      3Q     Max 
+## -1566.3   -89.1   -24.9   -15.5  6827.6 
 ## 
 ## Coefficients:
 ##        Estimate Std. Error t value Pr(&gt;|t|)    
-## mu_hat   12.409      2.745   4.521 7.31e-06 ***
+## mu_hat   39.087      2.529   15.46   &lt;2e-16 ***
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
 ## 
-## Residual standard error: 300.6 on 658 degrees of freedom
-## Multiple R-squared:  0.03012,    Adjusted R-squared:  0.02865 
-## F-statistic: 20.44 on 1 and 658 DF,  p-value: 7.31e-06</code></pre>
+## Residual standard error: 336.4 on 658 degrees of freedom
+## Multiple R-squared:  0.2664, Adjusted R-squared:  0.2653 
+## F-statistic: 238.9 on 1 and 658 DF,  p-value: &lt; 2.2e-16</code></pre>
 <pre class="r"><code># p-value e coeficiente
 p_value &lt;- summary(sobredisp_model)$coefficients[1, 4]
 coef_sobredisp &lt;- summary(sobredisp_model)$coefficients[1, 1]
-print(paste(&quot;p-value do teste de sobredispersão:&quot;, p_value))</code></pre>
-<pre><code>## [1] &quot;p-value do teste de sobredispersão: 7.30972858870746e-06&quot;</code></pre>
-<pre class="r"><code>print(paste(&quot;Coeficiente do teste de sobredispersão:&quot;, coef_sobredisp))</code></pre>
-<pre><code>## [1] &quot;Coeficiente do teste de sobredispersão: 12.4087453108527&quot;</code></pre>
+print(paste(&quot;p-value do teste de sobredispersão:&quot;, round(p_value, 4)))</code></pre>
+<pre><code>## [1] &quot;p-value do teste de sobredispersão: 0&quot;</code></pre>
+<pre class="r"><code>if (p_value &lt; 0.05) {
+    print(&quot;Há evidências de sobredispersão nos dados, p-value &lt; 0.05&quot;)
+} else {
+    print(&quot;Não há evidências de sobredispersão nos dados, p-value &gt;= 0.05&quot;)
+}</code></pre>
+<pre><code>## [1] &quot;Há evidências de sobredispersão nos dados, p-value &lt; 0.05&quot;</code></pre>
+<pre class="r"><code>print(paste(&quot;Coeficiente do teste de sobredispersão:&quot;, round(coef_sobredisp, 2)))</code></pre>
+<pre><code>## [1] &quot;Coeficiente do teste de sobredispersão: 39.09&quot;</code></pre>
 </div>
-<div id="modelo-de-regressão-de-negativa-binomial" class="section level3">
-<h3>Modelo de Regressão de Negativa Binomial</h3>
+<div id="modelo-de-regressão-binomial-negativa" class="section level3">
+<h3>Modelo de Regressão Binomial Negativa</h3>
 <pre class="r"><code>nb_model &lt;- glm.nb(
-    trips ~ quality + ski + userfee + costS, 
+    trips ~ quality + ski + userfee + costS + costH + costC, 
     data = df
 )
 
 summary(nb_model)</code></pre>
 <pre><code>## 
 ## Call:
-## glm.nb(formula = trips ~ quality + ski + userfee + costS, data = df, 
-##     init.theta = 0.4644915649, link = log)
+## glm.nb(formula = trips ~ quality + ski + userfee + costS + costH + 
+##     costC, data = df, init.theta = 0.7263941439, link = log)
 ## 
 ## Coefficients:
 ##              Estimate Std. Error z value Pr(&gt;|z|)    
-## (Intercept) -1.027044   0.173602  -5.916 3.30e-09 ***
-## quality      0.893695   0.042468  21.044  &lt; 2e-16 ***
-## skiyes       0.520614   0.162546   3.203 0.001361 ** 
-## userfeeyes   1.522145   0.428049   3.556 0.000377 ***
-## costS       -0.013705   0.002452  -5.591 2.26e-08 ***
+## (Intercept) -1.206658   0.165071  -7.310 2.67e-13 ***
+## quality      0.723457   0.040176  18.007  &lt; 2e-16 ***
+## skiyes       0.599777   0.147323   4.071 4.68e-05 ***
+## userfeeyes   0.668006   0.353546   1.889   0.0588 .  
+## costS       -0.093291   0.006629 -14.074  &lt; 2e-16 ***
+## costH        0.039536   0.007737   5.110 3.23e-07 ***
+## costC        0.047652   0.009210   5.174 2.29e-07 ***
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
 ## 
-## (Dispersion parameter for Negative Binomial(0.4645) family taken to be 1)
+## (Dispersion parameter for Negative Binomial(0.7264) family taken to be 1)
 ## 
-##     Null deviance: 947.51  on 658  degrees of freedom
-## Residual deviance: 451.70  on 654  degrees of freedom
-## AIC: 1802.5
+##     Null deviance: 1241.78  on 658  degrees of freedom
+## Residual deviance:  424.83  on 652  degrees of freedom
+## AIC: 1667.4
 ## 
 ## Number of Fisher Scoring iterations: 1
 ## 
 ## 
-##               Theta:  0.4645 
-##           Std. Err.:  0.0438 
+##               Theta:  0.7264 
+##           Std. Err.:  0.0743 
 ## 
-##  2 x log-likelihood:  -1790.4710</code></pre>
+##  2 x log-likelihood:  -1651.4460</code></pre>
+<p>Agora, vamos comparar a quantidade de zeros no modelo Binomial
+Negativa com a quantidade de zeros no conjunto de dados.</p>
+<pre class="r"><code>pred_negbin &lt;- predict(nb_model, type = &quot;response&quot;)
+negbin_zero_count &lt;- sum(dpois(0, lambda = pred_negbin))
+print(paste(&quot;Quantidade de zeros previstos pelo modelo Negativa Binomial:&quot;, round(negbin_zero_count)))</code></pre>
+<pre><code>## [1] &quot;Quantidade de zeros previstos pelo modelo Negativa Binomial: 370&quot;</code></pre>
 </div>
 <div id="modelo-de-poisson-inflado-de-zeros" class="section level3">
 <h3>Modelo de Poisson Inflado de zeros</h3>
+<p>A grande proporção de zeros no conjunto de dados indica a
+possibilidade de um processo de contagem que gera zeros excessivos.
+Vamos usar o modelo de Poisson Inflado de zeros (ZIP) para lidar com
+esse excesso de zeros e avaliar se ele melhora o ajuste.</p>
 <pre class="r"><code>zip_model &lt;- zeroinfl(
-    trips ~ quality + ski + userfee + costS | 1, 
+    trips ~ quality + ski + userfee + costS + costH + costC | 1, 
     data = df, 
     dist = &quot;poisson&quot;
 )
@@ -518,29 +543,39 @@ summary(nb_model)</code></pre>
 summary(zip_model)</code></pre>
 <pre><code>## 
 ## Call:
-## zeroinfl(formula = trips ~ quality + ski + userfee + costS | 1, data = df, 
-##     dist = &quot;poisson&quot;)
+## zeroinfl(formula = trips ~ quality + ski + userfee + costS + costH + 
+##     costC | 1, data = df, dist = &quot;poisson&quot;)
 ## 
 ## Pearson residuals:
 ##      Min       1Q   Median       3Q      Max 
-## -0.75351 -0.68738 -0.63318 -0.04748 19.25212 
+## -0.82965 -0.66243 -0.58418  0.05616 17.87225 
 ## 
 ## Count model coefficients (poisson with log link):
 ##              Estimate Std. Error z value Pr(&gt;|z|)    
-## (Intercept)  2.030631   0.101742  19.959  &lt; 2e-16 ***
-## quality      0.087868   0.026328   3.337 0.000846 ***
-## skiyes       0.387837   0.056064   6.918 4.59e-12 ***
-## userfeeyes   0.822914   0.078770  10.447  &lt; 2e-16 ***
-## costS       -0.015776   0.001021 -15.449  &lt; 2e-16 ***
+## (Intercept)  1.390470   0.139574   9.962  &lt; 2e-16 ***
+## quality      0.155312   0.033623   4.619 3.85e-06 ***
+## skiyes       0.402776   0.057519   7.002 2.51e-12 ***
+## userfeeyes   0.667499   0.080184   8.325  &lt; 2e-16 ***
+## costS       -0.038857   0.001929 -20.144  &lt; 2e-16 ***
+## costH        0.029246   0.003218   9.087  &lt; 2e-16 ***
+## costC       -0.002062   0.003635  -0.567    0.571    
 ## 
 ## Zero-inflation model coefficients (binomial with logit link):
-##             Estimate Std. Error z value Pr(&gt;|z|)    
-## (Intercept)  0.43931    0.08536   5.147 2.65e-07 ***
+##             Estimate Std. Error z value Pr(&gt;|z|)  
+## (Intercept)   0.2538     0.1094    2.32   0.0203 *
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1 
 ## 
-## Number of iterations in BFGS optimization: 14 
-## Log-likelihood: -1540 on 6 Df</code></pre>
+## Number of iterations in BFGS optimization: 15 
+## Log-likelihood: -1443 on 8 Df</code></pre>
+</div>
+<div id="verificando-a-quantidade-de-zeros-no-modelo-zip" class="section level3">
+<h3>Verificando a quantidade de zeros no modelo ZIP</h3>
+<pre class="r"><code>pred_zip &lt;- predict(zip_model, type = &quot;response&quot;)
+zip_zero_count &lt;- 
+sum(dpois(0, lambda = pred_zip))
+print(paste(&quot;Quantidade de zeros previstos pelo modelo de Poisson Inflado de zeros:&quot;, round(zip_zero_count)))</code></pre>
+<pre><code>## [1] &quot;Quantidade de zeros previstos pelo modelo de Poisson Inflado de zeros: 218&quot;</code></pre>
 </div>
 <div id="comparação-dos-modelos" class="section level3">
 <h3>Comparação dos Modelos</h3>
@@ -552,9 +587,9 @@ comparison &lt;- data.frame(
 )
 print(comparison)</code></pre>
 <pre><code>##               Model      AIC      BIC
-## 1           Poisson 3521.534 3543.987
-## 2 Negativa Binomial 1802.471 1829.415
-## 3               ZIP 3091.834 3118.778</code></pre>
+## 1           Poisson 3107.053 3138.488
+## 2 Negativa Binomial 1667.446 1703.372
+## 3               ZIP 2902.811 2938.736</code></pre>
 </div>
 
 

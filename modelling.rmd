@@ -33,7 +33,7 @@ summary(df)
 
 ```{r}
 poisson_model <- glm(
-    trips ~ quality + ski + userfee + costS, 
+    trips ~ quality + ski + userfee + costS + costH + costC, 
     data = df,
     family = poisson(link = "log")
 )
@@ -52,6 +52,10 @@ print(paste("Quantidade de zeros previstos pelo modelo de Poisson:", round(poiss
 ```
 
 ### Teste de Sobredispersão
+
+Vamos verificar se há sobredispersão nos dados, que é uma condição comum em modelos de contagem onde a variância é maior que a média.
+Esse teste é feito através da regressão de \(Z_i\) em \(\mu\), onde \(Z_i = (y_i - \mu_i)^2 - y_i / \mu_i\). Se o coeficiente for significativo, indica sobredispersão.
+
 ```{r}
 #Valores ajustados
 mu_hat <- fitted(poisson_model)
@@ -67,31 +71,54 @@ summary(sobredisp_model)
 # p-value e coeficiente
 p_value <- summary(sobredisp_model)$coefficients[1, 4]
 coef_sobredisp <- summary(sobredisp_model)$coefficients[1, 1]
-print(paste("p-value do teste de sobredispersão:", p_value))
-print(paste("Coeficiente do teste de sobredispersão:", coef_sobredisp))
+print(paste("p-value do teste de sobredispersão:", round(p_value, 4)))
+if (p_value < 0.05) {
+    print("Há evidências de sobredispersão nos dados, p-value < 0.05")
+} else {
+    print("Não há evidências de sobredispersão nos dados, p-value >= 0.05")
+}
+print(paste("Coeficiente do teste de sobredispersão:", round(coef_sobredisp, 2)))
 ```
 
 
-### Modelo de Regressão de Negativa Binomial
+### Modelo de Regressão Binomial Negativa
 ```{r}
 nb_model <- glm.nb(
-    trips ~ quality + ski + userfee + costS, 
+    trips ~ quality + ski + userfee + costS + costH + costC, 
     data = df
 )
 
 summary(nb_model)
 ```
 
+Agora, vamos comparar a quantidade de zeros no modelo Binomial Negativa com a quantidade de zeros no conjunto de dados.
+```{r}
+pred_negbin <- predict(nb_model, type = "response")
+negbin_zero_count <- sum(dpois(0, lambda = pred_negbin))
+print(paste("Quantidade de zeros previstos pelo modelo Negativa Binomial:", round(negbin_zero_count)))
+```
 
 ### Modelo de Poisson Inflado de zeros
+
+A grande proporção de zeros no conjunto de dados indica a possibilidade de um processo de contagem que gera zeros excessivos.
+Vamos usar o modelo de Poisson Inflado de zeros (ZIP) para lidar com esse excesso de zeros e avaliar se ele melhora o ajuste.
+
 ```{r}
 zip_model <- zeroinfl(
-    trips ~ quality + ski + userfee + costS | 1, 
+    trips ~ quality + ski + userfee + costS + costH + costC | 1, 
     data = df, 
     dist = "poisson"
 )
 
 summary(zip_model)
+```
+
+### Verificando a quantidade de zeros no modelo ZIP
+```{r}
+pred_zip <- predict(zip_model, type = "response")
+zip_zero_count <- 
+sum(dpois(0, lambda = pred_zip))
+print(paste("Quantidade de zeros previstos pelo modelo de Poisson Inflado de zeros:", round(zip_zero_count)))
 ```
 
 ### Comparação dos Modelos
